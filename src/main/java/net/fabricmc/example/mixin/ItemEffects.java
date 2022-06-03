@@ -28,14 +28,16 @@ public final class ItemEffects {
 	@Inject(at = @At("HEAD"), method = "interactItem")
 	public void boomboom(ServerPlayerEntity player, World world, ItemStack stack, Hand hand, CallbackInfoReturnable<ActionResult> cir){
 		if (world.isClient()) return;
-		if (stack.getNbt().contains("SpecialEffect")) {
-			NbtCompound effect = stack.getNbt().getCompound("SpecialEffect");
-			if (effect.contains("id", NbtElement.STRING_TYPE) && effect.contains("power", NbtElement.INT_TYPE))
-				switch (effect.getString("id")){
-					case ("explosion"):
-						BoomBoom(player, effect, world);
-						break;
-				}
+		if (stack.hasNbt()) {
+			if (stack.getNbt().contains("SpecialEffect")) {
+				NbtCompound effect = stack.getNbt().getCompound("SpecialEffect");
+				if (effect.contains("id", NbtElement.STRING_TYPE) && effect.contains("power", NbtElement.INT_TYPE))
+					switch (effect.getString("id")) {
+						case ("explosion"):
+							BoomBoom(player, effect, world);
+							break;
+					}
+			}
 		}
 	}
 	private void BoomBoom(PlayerEntity player, NbtCompound effect, World world){
