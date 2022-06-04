@@ -4,11 +4,8 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.GenericContainerScreenHandler;
 import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.ScreenHandlerType;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.collection.DefaultedList;
-import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -16,23 +13,16 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(ScreenHandler.class)
-public abstract class ScreenHandlerMixin {
+@Mixin(GenericContainerScreenHandler.class)
+public abstract class ContainerScreenHandlerMixin {
     @Shadow
     protected abstract void internalOnSlotClick(int slotIndex, int button, SlotActionType actionType, PlayerEntity player);
-
-    @Shadow @Final public static int EMPTY_SPACE_SLOT_INDEX;
-
-    @Shadow @Final public DefaultedList<Slot> slots;
 
     @Redirect(at = @At(value = "INVOKE", target = "Lnet/minecraft/screen/ScreenHandler;internalOnSlotClick(IILnet/minecraft/screen/slot/SlotActionType;Lnet/minecraft/entity/player/PlayerEntity;)V"), method = "onSlotClick")
     public void PooPooPeePee(ScreenHandler instance, int slotIndex, int button, SlotActionType actionType, PlayerEntity player) {
         if (slotIndex != -999 && slotIndex != -1) {
             Slot slot = instance.slots.get(slotIndex);
-            if (instance.getType().equals(ScreenHandlerType.GENERIC_9X6)){
-                GenericContainerScreenHandler hando = (GenericContainerScreenHandler) instance;
-                if (!hando.getInventory().isValid(slotIndex, slot.getStack()) && actionType == SlotActionType.QUICK_MOVE) return;
-            }
+            if (!instance.getInventory().isValid(slotIndex, slot.getStack()) && actionType == SlotActionType.QUICK_MOVE) return;
             if (!slot.inventory.isValid(slotIndex, slot.getStack())) return;
         }
         this.internalOnSlotClick(slotIndex, button, actionType, player);
