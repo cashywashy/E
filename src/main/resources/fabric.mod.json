@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "id": "modid",
+  "id": "chadmin",
   "version": "${version}",
 
-  "name": "Onii-chan",
+  "name": "Chadmin",
   "description": "Admin abuse? Pay-to-win? We have it all!",
   "authors": [
     "Me"
@@ -14,7 +14,7 @@
   },
 
   "license": "CC0-1.0",
-  "icon": "assets/modid/icon.png",
+  "icon": "assets/chadmin/pissandcum/astofo.png",
 
   "environment": "*",
   "entrypoints": {

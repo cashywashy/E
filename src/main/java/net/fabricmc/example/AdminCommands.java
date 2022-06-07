@@ -12,15 +12,19 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.GenericContainerScreenHandler;
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
+import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 
 public class AdminCommands {
     public static int peepEnderChest(CommandContext context) {
         try {
             ServerPlayerEntity player2 = EntityArgumentType.getPlayer(context, "player");
+            ServerPlayerEntity owner = ((ServerCommandSource)context.getSource()).getPlayer();
             EnderChestInventory enderChestInventory = player2.getEnderChestInventory();
 
-            player2.openHandledScreen(new SimpleNamedScreenHandlerFactory((syncId, inventory, player) -> GenericContainerScreenHandler.createGeneric9x3(syncId, inventory, enderChestInventory), player2.getName()));
+
+
+            owner.openHandledScreen(new SimpleNamedScreenHandlerFactory((syncId, inventory, player) -> GenericContainerScreenHandler.createGeneric9x3(syncId, inventory, enderChestInventory), player2.getName()));
 
         } catch (CommandSyntaxException e) {
             // TODO: shout at caller
@@ -35,6 +39,7 @@ public class AdminCommands {
         try {
             ServerPlayerEntity player2 = EntityArgumentType.getPlayer(context, "player");
             PlayerInventory playerInventory = player2.getInventory();
+            ServerPlayerEntity owner = ((ServerCommandSource)context.getSource()).getPlayer();
             playerInventory.onOpen(player2);
 
             SimpleNamedScreenHandlerFactory menu = new SimpleNamedScreenHandlerFactory((syncId, inventory, player) -> {
@@ -128,7 +133,7 @@ public class AdminCommands {
             }, player2.getName());
 
 
-            player2.openHandledScreen(menu);
+            owner.openHandledScreen(menu);
 
         } catch (CommandSyntaxException e) {
             // TODO: shout at caller

@@ -7,10 +7,6 @@
     "ItemEffects",
     "ScreenHandlerMixin"
   ],
-  "server": [
-    "ItemEffects",
-    "ScreenHandlerMixin"
-  ],
   "injectors": {
     "defaultRequire": 1
   }

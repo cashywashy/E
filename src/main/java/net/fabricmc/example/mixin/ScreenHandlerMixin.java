@@ -13,8 +13,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(GenericContainerScreenHandler.class)
-public abstract class ContainerScreenHandlerMixin {
+@Mixin(ScreenHandler.class)
+public abstract class ScreenHandlerMixin {
     @Shadow
     protected abstract void internalOnSlotClick(int slotIndex, int button, SlotActionType actionType, PlayerEntity player);
 
@@ -22,7 +22,7 @@ public abstract class ContainerScreenHandlerMixin {
     public void PooPooPeePee(ScreenHandler instance, int slotIndex, int button, SlotActionType actionType, PlayerEntity player) {
         if (slotIndex != -999 && slotIndex != -1) {
             Slot slot = instance.slots.get(slotIndex);
-            if (!instance.getInventory().isValid(slotIndex, slot.getStack()) && actionType == SlotActionType.QUICK_MOVE) return;
+            if (instance instanceof GenericContainerScreenHandler containerInstance && !containerInstance.getInventory().isValid(slotIndex, slot.getStack()) && actionType == SlotActionType.QUICK_MOVE) return;
             if (!slot.inventory.isValid(slotIndex, slot.getStack())) return;
         }
         this.internalOnSlotClick(slotIndex, button, actionType, player);
