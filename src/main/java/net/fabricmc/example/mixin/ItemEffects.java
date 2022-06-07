@@ -3,6 +3,8 @@ package net.fabricmc.example.mixin;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LightningEntity;
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.effect.StatusEffect;
+import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
@@ -11,7 +13,6 @@ import net.minecraft.nbt.NbtInt;
 import net.minecraft.nbt.NbtString;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.network.ServerPlayerInteractionManager;
-import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
@@ -27,6 +28,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(ServerPlayerInteractionManager.class)
 public final class ItemEffects {
+	@Shadow @Final protected ServerPlayerEntity player;
 	public final String EXPLOSION = "explosion";
 	public final String YOUSHOULDKILLYOURSELFNOW = "youShouldKillYourselfNOW";
 
@@ -40,24 +42,24 @@ public final class ItemEffects {
 	 **/
 	@Inject(at = @At("HEAD"), method = "interactItem", cancellable = true)
 	public void interactItemOverride(ServerPlayerEntity player, World world, ItemStack stack, Hand hand, CallbackInfoReturnable<ActionResult> cir){
-		EffectActivation(player,world,stack,hand,cir);
+		EffectActivation(player,world,stack, cir);
 	}
 
 	@Inject(at = @At("HEAD"), method = "interactBlock", cancellable = true)
 	public void interactBlockOverride(ServerPlayerEntity player, World world, ItemStack stack, Hand hand, BlockHitResult hitResult, CallbackInfoReturnable<ActionResult> cir){
-		EffectActivation(player,world,stack,hand,cir);
+		EffectActivation(player,world,stack, cir);
 	}
 
-	public void EffectActivation(ServerPlayerEntity player, World world, ItemStack stack, Hand hand, CallbackInfoReturnable<ActionResult> cir) {
+	public void EffectActivation(ServerPlayerEntity player, World world, ItemStack stack, CallbackInfoReturnable<ActionResult> cir) {
 		if (stack.hasNbt() && stack.getNbt().contains("SpecialEffect")) {
-			if (world.isClient()) cir.setReturnValue(ActionResult.PASS);
 			NbtCompound effect = stack.getNbt().getCompound("SpecialEffect");
-			if (effect.contains("id", NbtElement.STRING_TYPE) && effect.contains("power"))
+			if (effect.contains("id", NbtElement.STRING_TYPE) && effect.contains("power")) {
 				switch (effect.getString("id")) {
 					case (EXPLOSION) -> BoomBoom(player, effect, world);
 					case (YOUSHOULDKILLYOURSELFNOW) -> YouShouldKillYourselfNOW(player, effect, world);
 				}
-			cir.setReturnValue(ActionResult.SUCCESS);
+				cir.setReturnValue(ActionResult.SUCCESS);
+			}
 		}
 
 	}
