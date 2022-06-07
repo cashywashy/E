@@ -10,42 +10,48 @@ import net.minecraft.nbt.NbtInt;
 import net.minecraft.nbt.NbtString;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.network.ServerPlayerInteractionManager;
-import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
-import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext;
 import net.minecraft.world.World;
 import net.minecraft.world.explosion.Explosion;
-import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(ServerPlayerInteractionManager.class)
 public final class ItemEffects {
+	public final String EXPLOSION = "explosion";
+	public final String YOUSHOULDKILLYOURSELFNOW = "youShouldKillYourselfNOW";
 
-	@Shadow @Final protected ServerPlayerEntity player;
-
-	@Shadow protected ServerWorld world;
-
+	/**
+	 * Checks if {@code stack.getNbt().contains("SpecialEffect")} and parses then activates correlated effect.
+	 * @param player the {@link ServerPlayerEntity} that has interacted with the item.
+	 * @param world the {@link World} that the event happens in.
+	 * @param stack the {@link ItemStack} that the {@link ServerPlayerEntity} interacted with.
+	 * @param hand the {@link  Hand}... I don't know what this is for, but it's in the original method, so I had to add it here.
+	 * @param cir the {@link CallbackInfoReturnable<ActionResult>}.
+	 **/
 	@Inject(at = @At("HEAD"), method = "interactItem")
-	public void boomboom(ServerPlayerEntity player, World world, ItemStack stack, Hand hand, CallbackInfoReturnable<ActionResult> cir){
+	public void EffectActivation(ServerPlayerEntity player, World world, ItemStack stack, Hand hand, CallbackInfoReturnable<ActionResult> cir) {
 		if (world.isClient()) return;
-		if (stack.hasNbt()) {
-			if (stack.getNbt().contains("SpecialEffect")) {
-				NbtCompound effect = stack.getNbt().getCompound("SpecialEffect");
-				if (effect.contains("id", NbtElement.STRING_TYPE) && effect.contains("power"))
-					switch (effect.getString("id")) {
-						case ("explosion") -> BoomBoom(player, effect, world);
-						case ("youShouldKillYourselfNOW") -> YouShouldKillYourselfNOW(player, effect, world);
-					}
-			}
+		if (stack.hasNbt() && stack.getNbt().contains("SpecialEffect")) {
+			NbtCompound effect = stack.getNbt().getCompound("SpecialEffect");
+			if (effect.contains("id", NbtElement.STRING_TYPE) && effect.contains("power"))
+				switch (effect.getString("id")) {
+					case (EXPLOSION) -> BoomBoom(player, effect, world);
+					case (YOUSHOULDKILLYOURSELFNOW) -> YouShouldKillYourselfNOW(player, effect, world);
+				}
 		}
 	}
+
+	/**
+	 * The EXPLOSION method. Creates an explosion on the {@link PlayerEntity}, by the {@link PlayerEntity}.
+	 * @param player the {@link PlayerEntity} that activated the effect.
+	 * @param effect the {@link NbtCompound} containing information about the effect. The power param is used to determine explosive strength.
+	 * @param world the {@link World} the effect takes place in.
+	 **/
 	private void BoomBoom(PlayerEntity player, NbtCompound effect, World world){
 		if (effect.contains("power", NbtElement.INT_TYPE)) {
 			world.createExplosion(player, player.getX(), player.getY(), player.getZ(), effect.getInt("power"), Explosion.DestructionType.DESTROY);
@@ -54,6 +60,14 @@ public final class ItemEffects {
 			world.createExplosion(player, player.getX(), player.getY(), player.getZ(), 10, Explosion.DestructionType.DESTROY);
 		}
 	}
+	/**
+	 * The Lightning method. Smites an area depending on the power parameter.
+	 * @param player the {@link PlayerEntity} that activated the effect.
+	 * @param effect the {@link NbtCompound} containing information about the effect.
+	 *               If the power parameter is a {@link NbtString} with a value of {@code NOW} then smite randomly around the player in a 16x8x16 cube.
+	 *               If the power parameter is an {@link NbtInt} then smite the {@code player.raycast()} location {@code power} times. The range is also determined by {@code power}.
+	 * @param world the {@link World} the effect takes place in.
+	 **/
 	private void YouShouldKillYourselfNOW(PlayerEntity player, NbtCompound effect, World world){
 
 		if (effect.get("power") instanceof NbtString power && power.asString().equals("NOW")){

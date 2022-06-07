@@ -6,7 +6,7 @@ import net.minecraft.command.argument.EntityArgumentType;
 import net.minecraft.server.command.CommandManager;
 
 public class Init implements ModInitializer {
-    public static final String MOD_ID = "modid";
+    public static final String MOD_ID = "chadmin";
 
     @Override
     public void onInitialize() {

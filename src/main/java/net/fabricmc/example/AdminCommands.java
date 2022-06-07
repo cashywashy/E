@@ -22,8 +22,6 @@ public class AdminCommands {
             ServerPlayerEntity owner = ((ServerCommandSource)context.getSource()).getPlayer();
             EnderChestInventory enderChestInventory = player2.getEnderChestInventory();
 
-
-
             owner.openHandledScreen(new SimpleNamedScreenHandlerFactory((syncId, inventory, player) -> GenericContainerScreenHandler.createGeneric9x3(syncId, inventory, enderChestInventory), player2.getName()));
 
         } catch (CommandSyntaxException e) {
@@ -40,10 +38,9 @@ public class AdminCommands {
             ServerPlayerEntity player2 = EntityArgumentType.getPlayer(context, "player");
             PlayerInventory playerInventory = player2.getInventory();
             ServerPlayerEntity owner = ((ServerCommandSource)context.getSource()).getPlayer();
-            playerInventory.onOpen(player2);
 
             SimpleNamedScreenHandlerFactory menu = new SimpleNamedScreenHandlerFactory((syncId, inventory, player) -> {
-                Inventory e = new Inventory() {
+                Inventory viewInv = new Inventory() {
                     @Override
                     public int size() {
                         return 54;
@@ -55,10 +52,10 @@ public class AdminCommands {
                     }
 
                     /**
-                     * Adjusts the view slot index to the {@link PlayerInventory.combinedInventory} slot index.
+                     * Adjusts the view slot index to the {@link PlayerInventory } slot index.
                      *
                      * @param slot the view slot index.
-                     * @return the {@link PlayerInventory.combinedInventory} slot index, or -1 if the view slot does not have a corresponding real slot.
+                     * @return the {@link PlayerInventory} slot index, or -1 if the view slot does not have a corresponding real slot.
                      */
                     public int getSlot(int slot) {
                         if (slot < playerInventory.main.size()) {
@@ -128,7 +125,7 @@ public class AdminCommands {
                         return getSlot(slot) != -1;
                     }
                 };
-                return GenericContainerScreenHandler.createGeneric9x6(syncId, inventory, e);
+                return GenericContainerScreenHandler.createGeneric9x6(syncId, inventory, viewInv);
 
             }, player2.getName());
 
@@ -139,7 +136,6 @@ public class AdminCommands {
             // TODO: shout at caller
             e.printStackTrace();
         }
-
 
         return 0;
     }
