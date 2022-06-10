@@ -1,18 +1,16 @@
 package net.fabricmc.example;
 
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.ChestBlockEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.mob.ZombieEntity;
-import net.minecraft.util.TypeFilter;
-import net.minecraft.util.math.Box;
-import net.minecraft.world.World;
-import org.jetbrains.annotations.Nullable;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.world.chunk.ChunkManager;
+import net.minecraft.world.storage.ChunkDataAccess;
+import net.minecraft.world.storage.EntityChunkDataAccess;
 
 public class EntityFinder {
 
-    public static void find(World world){
-
+    public static void find(ServerWorld world, ServerPlayerEntity player){
+        ChunkManager chunkyCheese =  world.getChunkManager();
+        // ServerWorld, ChunkDataAccess EntityChunkDataAccess, ChunkPos
     }
 
 }
