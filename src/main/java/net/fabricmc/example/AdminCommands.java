@@ -14,128 +14,116 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 
 public class AdminCommands {
-    public static int peepEnderChest(CommandContext context) {
-        try {
-            ServerPlayerEntity player2 = EntityArgumentType.getPlayer(context, "player");
-            ServerPlayerEntity owner = ((ServerCommandSource)context.getSource()).getPlayer();
-            EnderChestInventory enderChestInventory = player2.getEnderChestInventory();
+    public static int peepEnderChest(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+        ServerPlayerEntity player2 = context.getArgument("player", ServerPlayerEntity.class);
+        ServerPlayerEntity owner = context.getSource().getPlayer();
+        EnderChestInventory enderChestInventory = player2.getEnderChestInventory();
 
-            owner.openHandledScreen(new SimpleNamedScreenHandlerFactory((syncId, inventory, player) -> GenericContainerScreenHandler.createGeneric9x3(syncId, inventory, enderChestInventory), player2.getName()));
-
-        } catch (CommandSyntaxException e) {
-            // TODO: shout at caller
-            e.printStackTrace();
-        }
+        owner.openHandledScreen(new SimpleNamedScreenHandlerFactory((syncId, inventory, player) -> GenericContainerScreenHandler.createGeneric9x3(syncId, inventory, enderChestInventory), player2.getName()));
 
 
         return 0;
     }
 
-    public static int peepInventory(CommandContext context) {
+    public static int peepInventory(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
 
-        try {
-            ServerPlayerEntity player2 = EntityArgumentType.getPlayer(context, "player");
-            PlayerInventory playerInventory = player2.getInventory();
-            ServerPlayerEntity owner = ((ServerCommandSource)context.getSource()).getPlayer();
+        ServerPlayerEntity player2 = EntityArgumentType.getPlayer(context, "player");
+        PlayerInventory playerInventory = player2.getInventory();
+        ServerPlayerEntity owner = context.getSource().getPlayer();
 
 
-            SimpleNamedScreenHandlerFactory menu = new SimpleNamedScreenHandlerFactory((syncId, inventory, player) -> {
-                Inventory viewInv = new Inventory() {
-                    @Override
-                    public int size() {
-                        return 54;
+        SimpleNamedScreenHandlerFactory menu = new SimpleNamedScreenHandlerFactory((syncId, inventory, player) -> {
+            Inventory viewInv = new Inventory() {
+                @Override
+                public int size() {
+                    return 54;
+                }
+
+                @Override
+                public boolean isEmpty() {
+                    return playerInventory.isEmpty();
+                }
+
+                /**
+                 * Adjusts the view slot index to the {@link PlayerInventory } slot index.
+                 *
+                 * @param slot the view slot index.
+                 * @return the {@link PlayerInventory} slot index, or -1 if the view slot does not have a corresponding real slot.
+                 */
+                public int getSlot(int slot) {
+                    if (slot < playerInventory.main.size()) {
+                        return slot;
                     }
 
-                    @Override
-                    public boolean isEmpty() {
-                        return playerInventory.isEmpty();
+                    // remove padding row.
+                    slot -= 9;
+
+                    if (slot >= playerInventory.main.size() && slot < playerInventory.main.size() + playerInventory.armor.size()) {
+                        return slot;
                     }
 
-                    /**
-                     * Adjusts the view slot index to the {@link PlayerInventory } slot index.
-                     *
-                     * @param slot the view slot index.
-                     * @return the {@link PlayerInventory} slot index, or -1 if the view slot does not have a corresponding real slot.
-                     */
-                    public int getSlot(int slot) {
-                        if (slot < playerInventory.main.size()) {
-                            return slot;
-                        }
+                    // remove offhand alignment to the right side of the container.
+                    slot -= 4;
 
-                        // remove padding row.
-                        slot -= 9;
-
-                        if (slot >= playerInventory.main.size() && slot < playerInventory.main.size() + playerInventory.armor.size()) {
-                            return slot;
-                        }
-
-                        // remove offhand alignment to the right side of the container.
-                        slot -= 4;
-
-                        if (slot == playerInventory.main.size() + playerInventory.armor.size()) {
-                            return slot;
-                        }
-
-                        return -1;
+                    if (slot == playerInventory.main.size() + playerInventory.armor.size()) {
+                        return slot;
                     }
 
-                    @Override
-                    public ItemStack getStack(int slot) {
-                        slot = getSlot(slot);
-                        return slot == -1 ? ItemStack.EMPTY : playerInventory.getStack(slot);
+                    return -1;
+                }
+
+                @Override
+                public ItemStack getStack(int slot) {
+                    slot = getSlot(slot);
+                    return slot == -1 ? ItemStack.EMPTY : playerInventory.getStack(slot);
+                }
+
+                @Override
+                public ItemStack removeStack(int slot, int amount) {
+                    slot = getSlot(slot);
+                    return slot == -1 ? ItemStack.EMPTY : playerInventory.removeStack(slot, amount);
+                }
+
+                @Override
+                public ItemStack removeStack(int slot) {
+                    slot = getSlot(slot);
+                    return slot == -1 ? ItemStack.EMPTY : playerInventory.removeStack(slot);
+                }
+
+                @Override
+                public void setStack(int slot, ItemStack stack) {
+                    slot = getSlot(slot);
+                    if (slot != -1) {
+                        playerInventory.setStack(slot, stack);
                     }
+                }
 
-                    @Override
-                    public ItemStack removeStack(int slot, int amount) {
-                        slot = getSlot(slot);
-                        return slot == -1 ? ItemStack.EMPTY : playerInventory.removeStack(slot, amount);
-                    }
+                @Override
+                public void markDirty() {
+                    playerInventory.markDirty();
+                }
 
-                    @Override
-                    public ItemStack removeStack(int slot) {
-                        slot = getSlot(slot);
-                        return slot == -1 ? ItemStack.EMPTY : playerInventory.removeStack(slot);
-                    }
+                @Override
+                public boolean canPlayerUse(PlayerEntity player) {
+                    return true;
+                }
 
-                    @Override
-                    public void setStack(int slot, ItemStack stack) {
-                        slot = getSlot(slot);
-                        if (slot != -1) {
-                            playerInventory.setStack(slot, stack);
-                        }
-                    }
+                @Override
+                public void clear() {
+                    playerInventory.clear();
+                }
 
-                    @Override
-                    public void markDirty() {
-                        playerInventory.markDirty();
-                    }
+                @Override
+                public boolean isValid(int slot, ItemStack stack) {
+                    return getSlot(slot) != -1;
+                }
+            };
+            return GenericContainerScreenHandler.createGeneric9x6(syncId, inventory, viewInv);
 
-                    @Override
-                    public boolean canPlayerUse(PlayerEntity player) {
-                        return true;
-                    }
-
-                    @Override
-                    public void clear() {
-                        playerInventory.clear();
-                    }
-
-                    @Override
-                    public boolean isValid(int slot, ItemStack stack) {
-                        return getSlot(slot) != -1;
-                    }
-                };
-                return GenericContainerScreenHandler.createGeneric9x6(syncId, inventory, viewInv);
-
-            }, player2.getName());
+        }, player2.getName());
 
 
-            owner.openHandledScreen(menu);
-
-        } catch (CommandSyntaxException e) {
-            // TODO: shout at caller
-            e.printStackTrace();
-        }
+        owner.openHandledScreen(menu);
 
         return 0;
     }

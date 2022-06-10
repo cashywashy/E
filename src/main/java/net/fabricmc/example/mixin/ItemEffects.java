@@ -28,7 +28,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(ServerPlayerInteractionManager.class)
 public final class ItemEffects {
-	@Shadow @Final protected ServerPlayerEntity player;
 	public final String EXPLOSION = "explosion";
 	public final String YOUSHOULDKILLYOURSELFNOW = "youShouldKillYourselfNOW";
 
