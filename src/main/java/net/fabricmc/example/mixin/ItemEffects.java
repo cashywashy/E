@@ -71,11 +71,14 @@ public final class ItemEffects {
 	 * @param world the {@link World} the effect takes place in.
 	 **/
 	private void BoomBoom(PlayerEntity player, NbtCompound effect, World world){
+		Vec3d pos = player.raycast(20,2f,!player.isSubmergedInWater()).getPos();
+
+
 		if (effect.contains("power", NbtElement.INT_TYPE)) {
-			world.createExplosion(player, player.getX(), player.getY(), player.getZ(), effect.getInt("power"), Explosion.DestructionType.DESTROY);
+			world.createExplosion(player, pos.getX(), pos.getY(), pos.getZ(), effect.getInt("power"), Explosion.DestructionType.DESTROY);
 		}
 		else {
-			world.createExplosion(player, player.getX(), player.getY(), player.getZ(), 10, Explosion.DestructionType.DESTROY);
+			world.createExplosion(player, pos.getX(), pos.getY(), pos.getZ(), 10, Explosion.DestructionType.DESTROY);
 		}
 	}
 
@@ -107,7 +110,7 @@ public final class ItemEffects {
 				}
 		}
 		else if (effect.get("power") instanceof NbtInt power){
-			Vec3d location = player.raycast(power.intValue()*5, 2f, true).getPos();
+			Vec3d location = player.raycast(power.intValue()*5, 2f, !player.isSubmergedInWater()).getPos();
 			for (int i = 0; i < power.intValue(); i++){
 				LightningEntity boomBooms = new LightningEntity(EntityType.LIGHTNING_BOLT, world);
 				boomBooms.setChanneler(player);

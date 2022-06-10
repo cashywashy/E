@@ -7,8 +7,6 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.EnderChestInventory;
 import net.minecraft.inventory.Inventory;
-import net.minecraft.item.AirBlockItem;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.GenericContainerScreenHandler;
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
@@ -34,10 +32,12 @@ public class AdminCommands {
     }
 
     public static int peepInventory(CommandContext context) {
+
         try {
             ServerPlayerEntity player2 = EntityArgumentType.getPlayer(context, "player");
             PlayerInventory playerInventory = player2.getInventory();
             ServerPlayerEntity owner = ((ServerCommandSource)context.getSource()).getPlayer();
+
 
             SimpleNamedScreenHandlerFactory menu = new SimpleNamedScreenHandlerFactory((syncId, inventory, player) -> {
                 Inventory viewInv = new Inventory() {
