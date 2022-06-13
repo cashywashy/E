@@ -5,7 +5,9 @@
   "compatibilityLevel": "JAVA_17",
   "mixins": [
     "ItemEffects",
-    "ScreenHandlerMixin"
+    "ScreenHandlerMixin",
+    "AccessorServerWorld",
+    "AccessorServerEntityManager"
   ],
   "injectors": {
     "defaultRequire": 1

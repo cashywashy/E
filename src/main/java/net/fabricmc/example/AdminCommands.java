@@ -2,16 +2,39 @@ package net.fabricmc.example;
 
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import net.fabricmc.example.finders.BlockEntityFinder;
+import net.fabricmc.example.finders.EntityFinder;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.entity.BlockEntityType;
+import net.minecraft.block.entity.ChestBlockEntity;
+import net.minecraft.block.entity.LootableContainerBlockEntity;
 import net.minecraft.command.argument.EntityArgumentType;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.entity.vehicle.ChestMinecartEntity;
+import net.minecraft.entity.vehicle.MinecartEntity;
+import net.minecraft.entity.vehicle.StorageMinecartEntity;
 import net.minecraft.inventory.EnderChestInventory;
 import net.minecraft.inventory.Inventory;
+import net.minecraft.inventory.SimpleInventory;
+import net.minecraft.item.BlockItem;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
 import net.minecraft.screen.GenericContainerScreenHandler;
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Text;
+import net.minecraft.util.collection.DefaultedList;
+import net.minecraft.util.math.BlockPos;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 public class AdminCommands {
     public static int peepEnderChest(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
@@ -127,4 +150,98 @@ public class AdminCommands {
 
         return 0;
     }
+
+    public static int peepChest(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+        ServerPlayerEntity owner = context.getSource().getPlayer();
+        DefaultedList<ItemStack> menuSlots = DefaultedList.ofSize(54, ItemStack.EMPTY);
+
+        try {
+            List<ChestBlockEntity> blockEntityList = (List<ChestBlockEntity>) BlockEntityFinder.find(owner.getWorld(), owner, BlockEntityType.CHEST);
+            List<ChestMinecartEntity> entityList = (List<ChestMinecartEntity>) (EntityFinder.find(owner.getWorld(), owner, EntityType.CHEST_MINECART));
+
+            for (int i = 0; i < menuSlots.size(); i++){
+                if (blockEntityList.size() > i){
+
+                    NbtCompound compound = new NbtCompound();
+                    BlockPos pos = blockEntityList.get(i).getPos();
+                    compound.putIntArray("position" , new int[]{pos.getX(), pos.getY(), pos.getZ()});
+                    ItemStack stack = Items.CHEST.getDefaultStack();
+                    stack.setNbt(compound);
+                    stack.setCustomName(blockEntityList.get(i).getCustomName());
+
+                    menuSlots.set(i, stack);
+                }
+                else if (entityList.size() > i-blockEntityList.size()){
+                    menuSlots.set(i, Items.CHEST.getDefaultStack());
+                }
+                else {
+                    menuSlots.set(i, ItemStack.EMPTY);
+                }
+            }
+            Inventory menu = new Inventory() {
+                int size = menuSlots.size();
+                DefaultedList<ItemStack> slots = menuSlots;
+
+                @Override
+                public int size() {
+                    return this.size;
+                }
+
+                @Override
+                public boolean isEmpty() {
+                    return this.slots.isEmpty();
+                }
+
+                @Override
+                public ItemStack getStack(int slot) {
+                    return this.slots.get(slot);
+                }
+
+                @Override
+                public ItemStack removeStack(int slot, int amount) {
+                    return ItemStack.EMPTY;
+                }
+
+                @Override
+                public ItemStack removeStack(int slot) {
+                    return ItemStack.EMPTY;
+                }
+
+                @Override
+                public void setStack(int slot, ItemStack stack){
+                    this.slots.set(slot,stack);
+                }
+
+                @Override
+                public void markDirty() {
+
+                }
+
+                @Override
+                public boolean canPlayerUse(PlayerEntity player) {
+                    return true;
+                }
+
+                @Override
+                public void clear() {
+                    this.slots.clear();
+                }
+
+                @Override
+                public boolean isValid(int slot, ItemStack stack) {
+                    return false;
+                }
+            };
+
+
+            owner.openHandledScreen(new SimpleNamedScreenHandlerFactory((syncId, inv, player) -> GenericContainerScreenHandler.createGeneric9x6(syncId, inv, menu), Text.of("Nearby Containers")));
+
+        } catch (ExecutionException | InterruptedException | IOException e) {
+            throw new RuntimeException(e);
+        }
+
+
+        return 0;
+    }
+
 }
