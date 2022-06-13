@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 public class EntityFinder {
 
     public static List<? extends Entity> find(ServerWorld world, ServerPlayerEntity player, EntityType type) throws ExecutionException, InterruptedException, IOException {
-        int range = 5;
+        int range = 4;
         ChunkPos pos = player.getChunkPos();
         List<ChunkPos> poses = new ArrayList<>();
         poses.add(pos);

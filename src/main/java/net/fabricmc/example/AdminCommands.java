@@ -9,6 +9,7 @@ import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.block.entity.ChestBlockEntity;
 import net.minecraft.block.entity.LootableContainerBlockEntity;
 import net.minecraft.command.argument.EntityArgumentType;
+import net.minecraft.command.argument.NbtElementArgumentType;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.player.PlayerEntity;
@@ -20,17 +21,22 @@ import net.minecraft.inventory.EnderChestInventory;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.inventory.SimpleInventory;
 import net.minecraft.item.BlockItem;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
+import net.minecraft.nbt.NbtList;
+import net.minecraft.nbt.NbtString;
 import net.minecraft.screen.GenericContainerScreenHandler;
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.NbtText;
 import net.minecraft.text.Text;
 import net.minecraft.util.collection.DefaultedList;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
 import java.io.IOException;
 import java.util.List;
@@ -161,10 +167,18 @@ public class AdminCommands {
 
             for (int i = 0; i < menuSlots.size(); i++){
                 if (blockEntityList.size() > i){
-
                     NbtCompound compound = new NbtCompound();
                     BlockPos pos = blockEntityList.get(i).getPos();
                     compound.putIntArray("position" , new int[]{pos.getX(), pos.getY(), pos.getZ()});
+
+                    NbtCompound display = new NbtCompound();
+                    NbtList lore = new NbtList();
+
+                    lore.add(NbtString.of("\"KILL ME NOW\"".replace("KILL ME NOW", pos.toString())));
+
+                    display.put("Lore", lore);
+                    compound.put("display", display);
+
                     ItemStack stack = Items.CHEST.getDefaultStack();
                     stack.setNbt(compound);
                     stack.setCustomName(blockEntityList.get(i).getCustomName());

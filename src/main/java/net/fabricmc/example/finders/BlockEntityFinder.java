@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 
 public class BlockEntityFinder {
     public static List<? extends BlockEntity> find(ServerWorld world, ServerPlayerEntity player, BlockEntityType type) {
-        int range = 2;
+        int range = 4;
         ChunkManager chunkyCheese = world.getChunkManager();
         List<BlockEntity> finalStretch = new ArrayList<>();
 
@@ -24,6 +24,8 @@ public class BlockEntityFinder {
         List<ChunkPos> poses = new ArrayList<>();
         poses.add(pos);
 
+        poses.add(new ChunkPos(pos.x, pos.z+1));
+        poses.add(new ChunkPos(pos.x, pos.z+1));
         for(int x = 1; x <= range; x++){
             poses.add(new ChunkPos(pos.x+x, pos.z));
             poses.add(new ChunkPos(pos.x-x, pos.z));
