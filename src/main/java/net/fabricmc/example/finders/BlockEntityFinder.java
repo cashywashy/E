@@ -14,6 +14,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ *
+ **/
 public class BlockEntityFinder {
     public static List<? extends BlockEntity> find(ServerWorld world, ServerPlayerEntity player, BlockEntityType type) {
         int range = 4;
