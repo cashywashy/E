@@ -5,6 +5,8 @@ import net.minecraft.block.entity.ChestBlockEntity;
 import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
 import net.minecraft.command.argument.GameProfileArgumentType;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.vehicle.ChestMinecartEntity;
+import net.minecraft.entity.vehicle.MinecartEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
@@ -41,8 +43,21 @@ public abstract class ScreenHandlerMixin {
                     int[] nbt = compound.getIntArray("position");
                     BlockPos pos = new BlockPos(nbt[0],nbt[1],nbt[2]);
                     if (player.getWorld().getBlockEntity(pos) instanceof ChestBlockEntity chest){
+                        player.openHandledScreen(new SimpleNamedScreenHandlerFactory((syncId, inv, player1) -> {
+                            ScreenHandlerType type = chest.createMenu(syncId, inv,player1).getType();
+                            GenericContainerScreenHandler screenHandler = new GenericContainerScreenHandler(type, syncId, inv, chest, chest.size()/9) {
+                                @Override
+                                public boolean canUse(PlayerEntity player) {
+                                    return true;
+                                }
+                            };
 
-
+                            return screenHandler;
+                        },chest.hasCustomName()?chest.getCustomName():chest.getName()));
+                    }
+                } else if (compound.contains("chestCart", NbtElement.INT_TYPE)) {
+                    int id = compound.getInt("chestCart");
+                    if (player.getWorld().getEntityById(id) instanceof ChestMinecartEntity chest){
                         player.openHandledScreen(new SimpleNamedScreenHandlerFactory((syncId, inv, player1) -> {
                             ScreenHandlerType type = chest.createMenu(syncId, inv,player1).getType();
                             GenericContainerScreenHandler screenHandler = new GenericContainerScreenHandler(type, syncId, inv, chest, chest.size()/9) {

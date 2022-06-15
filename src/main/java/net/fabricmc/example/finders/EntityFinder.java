@@ -32,7 +32,11 @@ public class EntityFinder {
         List<ChunkPos> poses = new ArrayList<>();
         poses.add(pos);
 
+        poses.add(new ChunkPos(pos.x, pos.z+1));
+        poses.add(new ChunkPos(pos.x, pos.z-1));
         for(int x = 1; x <= range; x++){
+            poses.add(new ChunkPos(pos.x+x, pos.z));
+            poses.add(new ChunkPos(pos.x-x, pos.z));
             for (int z = 1; z <= range; z++) {
                 poses.add(new ChunkPos(pos.x+x, pos.z+z));
                 poses.add(new ChunkPos(pos.x+x, pos.z-z));
@@ -46,7 +50,6 @@ public class EntityFinder {
         Queue<ChunkDataList<Entity>> loadingQueue = Queues.newConcurrentLinkedQueue();
 
         entityManager.flush();
-
         poses.forEach(chunkPos -> {
             ((CompletableFuture) entityChunkDataAccess.readChunkData(chunkPos).thenAccept(loadingQueue::add)).exceptionally(throwable -> {
                 LogUtils.getLogger().error("Failed to read chunk {}", chunkPos, throwable);
@@ -56,14 +59,16 @@ public class EntityFinder {
 
 
         entityChunkDataAccess.awaitAll(true);
-        List<ChunkDataList<Entity>> dataLists = loadingQueue.stream().collect(Collectors.toList());
 
         List<Entity> finalList = new ArrayList<>();
 
-        for (int i = 0; i < dataLists.size(); i++) {
-            List<Entity> listOfEntities = dataLists.get(i).stream().filter(Predicate.isEqual(type.getClass())).collect(Collectors.toList());
-            finalList.addAll(listOfEntities);
-        }
+        loadingQueue.stream().collect(Collectors.toList()).forEach(entityChunkDataList ->
+            entityChunkDataList.stream().collect(Collectors.toList()).forEach(entity -> {
+                if (entity.getType().equals(type)){
+                    finalList.add(entity);
+                }
+            })
+        );
 
         entityChunkDataAccess.awaitAll(false);
         return finalList;

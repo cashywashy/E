@@ -186,7 +186,23 @@ public class AdminCommands {
                     menuSlots.set(i, stack);
                 }
                 else if (entityList.size() > i-blockEntityList.size()){
-                    menuSlots.set(i, Items.CHEST.getDefaultStack());
+
+                    NbtCompound compound = new NbtCompound();
+                    int id = entityList.get(i- blockEntityList.size()).getId();
+                    compound.putInt("chestCart" , id);
+
+                    NbtCompound display = new NbtCompound();
+                    NbtList lore = new NbtList();
+
+                    lore.add(NbtString.of(String.valueOf(id)));
+
+                    display.put("Lore", lore);
+                    compound.put("display", display);
+
+                    ItemStack stack = Items.CHEST_MINECART.getDefaultStack();
+                    stack.setNbt(compound);
+
+                    menuSlots.set(i, stack);
                 }
                 else {
                     menuSlots.set(i, ItemStack.EMPTY);
