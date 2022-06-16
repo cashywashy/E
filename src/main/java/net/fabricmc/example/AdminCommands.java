@@ -2,47 +2,40 @@ package net.fabricmc.example;
 
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import net.fabricmc.example.finders.BlockEntityFinder;
-import net.fabricmc.example.finders.EntityFinder;
-import net.minecraft.block.entity.BlockEntity;
+import net.fabricmc.example.finders.Finder;
 import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.block.entity.ChestBlockEntity;
-import net.minecraft.block.entity.LootableContainerBlockEntity;
 import net.minecraft.command.argument.EntityArgumentType;
-import net.minecraft.command.argument.NbtElementArgumentType;
-import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.entity.vehicle.ChestMinecartEntity;
-import net.minecraft.entity.vehicle.MinecartEntity;
-import net.minecraft.entity.vehicle.StorageMinecartEntity;
 import net.minecraft.inventory.EnderChestInventory;
 import net.minecraft.inventory.Inventory;
-import net.minecraft.inventory.SimpleInventory;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.nbt.NbtString;
 import net.minecraft.screen.GenericContainerScreenHandler;
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.NbtText;
 import net.minecraft.text.Text;
 import net.minecraft.util.collection.DefaultedList;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 public class AdminCommands {
+    public static final Logger LOGGER = LogManager.getLogger();
+
     public static int peepEnderChest(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
         ServerPlayerEntity player2 = context.getArgument("player", ServerPlayerEntity.class);
         ServerPlayerEntity owner = context.getSource().getPlayer();
@@ -162,8 +155,8 @@ public class AdminCommands {
         DefaultedList<ItemStack> menuSlots = DefaultedList.ofSize(54, ItemStack.EMPTY);
 
         try {
-            List<ChestBlockEntity> blockEntityList = (List<ChestBlockEntity>) BlockEntityFinder.find(owner.getWorld(), owner, BlockEntityType.CHEST);
-            List<ChestMinecartEntity> entityList = (List<ChestMinecartEntity>) (EntityFinder.find(owner.getWorld(), owner, EntityType.CHEST_MINECART));
+            List<ChestBlockEntity> blockEntityList = (List<ChestBlockEntity>) Finder.findBlocks(owner.getWorld(), owner, BlockEntityType.CHEST);
+            List<ChestMinecartEntity> entityList = (List<ChestMinecartEntity>) (Finder.findEntities(owner.getWorld(), owner, entity -> entity.getType().equals(EntityType.CHEST_MINECART))).collect(Collectors.toList());
 
             for (int i = 0; i < menuSlots.size(); i++){
                 if (blockEntityList.size() > i){
@@ -186,10 +179,10 @@ public class AdminCommands {
                     menuSlots.set(i, stack);
                 }
                 else if (entityList.size() > i-blockEntityList.size()){
-
                     NbtCompound compound = new NbtCompound();
-                    int id = entityList.get(i- blockEntityList.size()).getId();
-                    compound.putInt("chestCart" , id);
+                    ChestMinecartEntity enty = entityList.get(i- blockEntityList.size());
+                    UUID id = enty.getUuid();
+                    compound.putUuid("chestCart" , id);
 
                     NbtCompound display = new NbtCompound();
                     NbtList lore = new NbtList();
@@ -264,10 +257,10 @@ public class AdminCommands {
             };
 
 
-            owner.openHandledScreen(new SimpleNamedScreenHandlerFactory((syncId, inv, player) -> GenericContainerScreenHandler.createGeneric9x6(syncId, inv, menu), Text.of("Nearby Containers")));
+            owner.openHandledScreen(new SimpleNamedScreenHandlerFactory((syncId, inv, player) -> new PeeperScreenHandler(syncId, inv, menu), Text.of("Nearby Containers")));
 
-        } catch (ExecutionException | InterruptedException | IOException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            LOGGER.error(e);
         }
 
 
