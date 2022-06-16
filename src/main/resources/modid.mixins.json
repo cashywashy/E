@@ -6,8 +6,10 @@
   "mixins": [
     "ItemEffects",
     "ScreenHandlerMixin",
+    "ServerWorldMixin",
     "AccessorServerWorld",
-    "AccessorServerEntityManager"
+    "AccessorServerEntityManager",
+    "AccessorThreadedAnvilChunkStorage"
   ],
   "injectors": {
     "defaultRequire": 1

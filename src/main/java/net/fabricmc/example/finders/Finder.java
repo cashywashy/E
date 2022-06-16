@@ -12,18 +12,20 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerEntityManager;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.ChunkSerializer;
+import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkManager;
 import net.minecraft.world.chunk.ProtoChunk;
+import net.minecraft.world.entity.EntityTrackingSection;
 import net.minecraft.world.storage.EntityChunkDataAccess;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -31,16 +33,16 @@ import java.util.stream.Stream;
 
 public class Finder {
     private static final Logger LOGGER = LogManager.getLogger();
-    private static final ExecutorService EXECUTOR_SERVICE = Executors.newCachedThreadPool();
+    public static final ExecutorService EXECUTOR_SERVICE = Executors.newCachedThreadPool();
 
     @FunctionalInterface
     interface ChunkConsumer<T> {
-        T apply(ChunkPos chunkPos);
+        T apply(ChunkPos chunkPos) throws Exception;
     }
 
+    @Nullable
     private static ProtoChunk loadChunkIndependent(ServerWorld world, ChunkPos chunkPos) {
         AccessorThreadedAnvilChunkStorage chunkStorage = (AccessorThreadedAnvilChunkStorage) world.getChunkManager().threadedAnvilChunkStorage;
-
 
         NbtCompound nbtCompound = chunkStorage.invokeGetUpdatedChunkNbt(chunkPos);
         if (nbtCompound != null) {
@@ -59,6 +61,7 @@ public class Finder {
         int len = range * 2 + 1;
 
         int i = 0;
+        //noinspection unchecked
         Future<T>[] futures = new Future[len * len];
         for (int x = -range; x <= range; x++) {
             for (int z = -range; z <= range; z++) {
@@ -67,35 +70,30 @@ public class Finder {
             }
         }
 
-        CompletableFuture<T[]> completableFuture = new CompletableFuture<>();
-        EXECUTOR_SERVICE.submit(() -> {
+        return EXECUTOR_SERVICE.submit(() -> {
             T[] results = Arrays.copyOf(empty, futures.length);
             for (int j = 0; j < futures.length; j++) {
-                try {
-                    results[j] = futures[j].get();
-                } catch (InterruptedException | ExecutionException e) {
-                    throw new RuntimeException(e);
-                }
+                results[j] = futures[j].get();
             }
-            completableFuture.complete(results);
+            return results;
         });
-        return completableFuture;
     }
 
     public static Stream<? extends Entity> findEntities(ServerWorld world, ServerPlayerEntity player, Predicate<Entity> predicate) throws ExecutionException, InterruptedException, IOException {
         int range = 4;
-        ServerEntityManager<Entity> entityManager = ((AccessorServerWorld) world).getEntityManager();
-        EntityChunkDataAccess entityChunkDataAccess = (EntityChunkDataAccess) ((AccessorServerEntityManager) ((AccessorServerWorld) world).getEntityManager()).getDataAccess();
+        //noinspection unchecked
+        AccessorServerEntityManager<Entity> entityManager = (AccessorServerEntityManager<Entity>) ((AccessorServerWorld) world).getEntityManager();
+        EntityChunkDataAccess entityChunkDataAccess = (EntityChunkDataAccess) entityManager.getDataAccess();
 
         List<Entity>[] lists = forEachChunk(world, player, range, (List<Entity>[]) new List[0], (ChunkPos chunkPos) -> {
             final Stream<Entity> steem;
             if (world.isChunkLoaded(chunkPos.toLong())) {
-                steem = ((AccessorServerEntityManager<Entity>) entityManager).getCache().getTrackingSections(chunkPos.toLong()).flatMap(section -> section.stream());
+                steem = entityManager.getCache().getTrackingSections(chunkPos.toLong()).flatMap(EntityTrackingSection::stream);
             } else {
                 steem = entityChunkDataAccess.readChunkData(chunkPos).exceptionally(throwable -> {
                     LogUtils.getLogger().error("Failed to read chunk {}", chunkPos, throwable);
                     return null;
-                }).join().stream();
+                }).get().stream().filter(Objects::nonNull);
             }
             return steem.filter(predicate).collect(Collectors.toList());
         }).get();
@@ -111,22 +109,22 @@ public class Finder {
      * @param player The player in question. Used to find the chunkpos the player is in. I could probably just have the user pass in the chunkpos directly instead of doing this, but I'm too lazy to change that right now.
      * @param type   The type of block that we're looking for
      **/
-    public static List<? extends BlockEntity> findBlocks(ServerWorld world, ServerPlayerEntity player, BlockEntityType type) throws ExecutionException, InterruptedException {
+    public static <T extends BlockEntity> Future<List<T>> findBlocks(ServerWorld world, ServerPlayerEntity player, BlockEntityType<T> type) {
         int range = 4;
 
-        ChunkManager entityManager = world.getChunkManager();
-
-        List<BlockEntity>[] lists = forEachChunk(world, player, range, (List<BlockEntity>[]) new List[0], (ChunkPos chunkPos) -> {
-            final Stream<BlockEntity> steem;
-            if (world.isChunkLoaded(chunkPos.toLong())) {
-                steem = world.getChunk(chunkPos.x, chunkPos.z).getBlockEntities().values().stream();
-            } else {
-                steem = loadChunkIndependent(world, chunkPos).getBlockEntities().values().stream();
-            }
-            return steem.filter(blockEntity -> blockEntity.getType().equals(type)).collect(Collectors.toList());
-        }).get();
-
-
-        return Arrays.stream(lists).flatMap(Collection::stream).collect(Collectors.toList());
+        return EXECUTOR_SERVICE.submit(() -> {
+            List<T>[] lists = forEachChunk(world, player, range, (List<T>[]) new List[0], (ChunkPos chunkPos) -> {
+                final Map<BlockPos, BlockEntity> blockEntities;
+                if (world.isChunkLoaded(chunkPos.toLong())) {
+                    blockEntities = world.getChunk(chunkPos.x, chunkPos.z).getBlockEntities();
+                } else {
+                    ProtoChunk chunk = loadChunkIndependent(world, chunkPos);
+                    blockEntities = chunk != null ? chunk.getBlockEntities() : null;
+                }
+                //noinspection unchecked
+                return blockEntities != null ? (List<T>) blockEntities.values().stream().filter(blockEntity -> blockEntity.getType().equals(type)).collect(Collectors.toList()) : List.<T>of();
+            }).get();
+            return Arrays.stream(lists).flatMap(Collection::stream).collect(Collectors.toList());
+        });
     }
 }

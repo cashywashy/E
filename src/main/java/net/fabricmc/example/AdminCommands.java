@@ -18,6 +18,7 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.nbt.NbtString;
 import net.minecraft.screen.GenericContainerScreenHandler;
+import net.minecraft.screen.ScreenHandlerType;
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -31,6 +32,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class AdminCommands {
@@ -152,117 +154,119 @@ public class AdminCommands {
 
     public static int peepChest(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
         ServerPlayerEntity owner = context.getSource().getPlayer();
-        DefaultedList<ItemStack> menuSlots = DefaultedList.ofSize(54, ItemStack.EMPTY);
+        Finder.EXECUTOR_SERVICE.submit(() -> {
+            DefaultedList<ItemStack> menuSlots = DefaultedList.ofSize(54, ItemStack.EMPTY);
 
-        try {
-            List<ChestBlockEntity> blockEntityList = (List<ChestBlockEntity>) Finder.findBlocks(owner.getWorld(), owner, BlockEntityType.CHEST);
-            List<ChestMinecartEntity> entityList = (List<ChestMinecartEntity>) (Finder.findEntities(owner.getWorld(), owner, entity -> entity.getType().equals(EntityType.CHEST_MINECART))).collect(Collectors.toList());
+            try {
+                List<ChestBlockEntity> blockEntityList = Finder.findBlocks(owner.getWorld(), owner, BlockEntityType.CHEST).get(10, TimeUnit.SECONDS);
+                List<ChestMinecartEntity> entityList = (List<ChestMinecartEntity>) (Finder.findEntities(owner.getWorld(), owner, entity -> entity.getType().equals(EntityType.CHEST_MINECART))).collect(Collectors.toList());
 
-            for (int i = 0; i < menuSlots.size(); i++){
-                if (blockEntityList.size() > i){
-                    NbtCompound compound = new NbtCompound();
-                    BlockPos pos = blockEntityList.get(i).getPos();
-                    compound.putIntArray("position" , new int[]{pos.getX(), pos.getY(), pos.getZ()});
+                for (int i = 0; i < menuSlots.size(); i++){
+                    if (blockEntityList.size() > i){
+                        NbtCompound compound = new NbtCompound();
+                        BlockPos pos = blockEntityList.get(i).getPos();
+                        compound.putIntArray("position" , new int[]{pos.getX(), pos.getY(), pos.getZ()});
 
-                    NbtCompound display = new NbtCompound();
-                    NbtList lore = new NbtList();
+                        NbtCompound display = new NbtCompound();
+                        NbtList lore = new NbtList();
 
-                    lore.add(NbtString.of("\"KILL ME NOW\"".replace("KILL ME NOW", pos.toString())));
+                        lore.add(NbtString.of("\"KILL ME NOW\"".replace("KILL ME NOW", pos.toString())));
 
-                    display.put("Lore", lore);
-                    compound.put("display", display);
+                        display.put("Lore", lore);
+                        compound.put("display", display);
 
-                    ItemStack stack = Items.CHEST.getDefaultStack();
-                    stack.setNbt(compound);
-                    stack.setCustomName(blockEntityList.get(i).getCustomName());
+                        ItemStack stack = Items.CHEST.getDefaultStack();
+                        stack.setNbt(compound);
+                        stack.setCustomName(blockEntityList.get(i).getCustomName());
 
-                    menuSlots.set(i, stack);
+                        menuSlots.set(i, stack);
+                    }
+                    else if (entityList.size() > i-blockEntityList.size()){
+                        NbtCompound compound = new NbtCompound();
+                        ChestMinecartEntity enty = entityList.get(i- blockEntityList.size());
+                        UUID id = enty.getUuid();
+                        compound.putUuid("chestCart" , id);
+
+                        NbtCompound display = new NbtCompound();
+                        NbtList lore = new NbtList();
+
+                        lore.add(NbtString.of(String.valueOf(id)));
+
+                        display.put("Lore", lore);
+                        compound.put("display", display);
+
+                        ItemStack stack = Items.CHEST_MINECART.getDefaultStack();
+                        stack.setNbt(compound);
+
+                        menuSlots.set(i, stack);
+                    }
+                    else {
+                        menuSlots.set(i, ItemStack.EMPTY);
+                    }
                 }
-                else if (entityList.size() > i-blockEntityList.size()){
-                    NbtCompound compound = new NbtCompound();
-                    ChestMinecartEntity enty = entityList.get(i- blockEntityList.size());
-                    UUID id = enty.getUuid();
-                    compound.putUuid("chestCart" , id);
+                Inventory menu = new Inventory() {
+                    int size = menuSlots.size();
+                    DefaultedList<ItemStack> slots = menuSlots;
 
-                    NbtCompound display = new NbtCompound();
-                    NbtList lore = new NbtList();
+                    @Override
+                    public int size() {
+                        return this.size;
+                    }
 
-                    lore.add(NbtString.of(String.valueOf(id)));
+                    @Override
+                    public boolean isEmpty() {
+                        return this.slots.isEmpty();
+                    }
 
-                    display.put("Lore", lore);
-                    compound.put("display", display);
+                    @Override
+                    public ItemStack getStack(int slot) {
+                        return this.slots.get(slot);
+                    }
 
-                    ItemStack stack = Items.CHEST_MINECART.getDefaultStack();
-                    stack.setNbt(compound);
+                    @Override
+                    public ItemStack removeStack(int slot, int amount) {
+                        return ItemStack.EMPTY;
+                    }
 
-                    menuSlots.set(i, stack);
-                }
-                else {
-                    menuSlots.set(i, ItemStack.EMPTY);
-                }
+                    @Override
+                    public ItemStack removeStack(int slot) {
+                        return ItemStack.EMPTY;
+                    }
+
+                    @Override
+                    public void setStack(int slot, ItemStack stack){
+                        this.slots.set(slot,stack);
+                    }
+
+                    @Override
+                    public void markDirty() {
+
+                    }
+
+                    @Override
+                    public boolean canPlayerUse(PlayerEntity player) {
+                        return true;
+                    }
+
+                    @Override
+                    public void clear() {
+                        this.slots.clear();
+                    }
+
+                    @Override
+                    public boolean isValid(int slot, ItemStack stack) {
+                        return false;
+                    }
+                };
+
+
+                owner.openHandledScreen(new SimpleNamedScreenHandlerFactory((syncId, inv, player) ->
+                        new PeeperScreenHandler(syncId, inv, menu), Text.of("Nearby Containers")));
+
+            } catch (Exception e) {
+                LOGGER.error(e);
             }
-            Inventory menu = new Inventory() {
-                int size = menuSlots.size();
-                DefaultedList<ItemStack> slots = menuSlots;
-
-                @Override
-                public int size() {
-                    return this.size;
-                }
-
-                @Override
-                public boolean isEmpty() {
-                    return this.slots.isEmpty();
-                }
-
-                @Override
-                public ItemStack getStack(int slot) {
-                    return this.slots.get(slot);
-                }
-
-                @Override
-                public ItemStack removeStack(int slot, int amount) {
-                    return ItemStack.EMPTY;
-                }
-
-                @Override
-                public ItemStack removeStack(int slot) {
-                    return ItemStack.EMPTY;
-                }
-
-                @Override
-                public void setStack(int slot, ItemStack stack){
-                    this.slots.set(slot,stack);
-                }
-
-                @Override
-                public void markDirty() {
-
-                }
-
-                @Override
-                public boolean canPlayerUse(PlayerEntity player) {
-                    return true;
-                }
-
-                @Override
-                public void clear() {
-                    this.slots.clear();
-                }
-
-                @Override
-                public boolean isValid(int slot, ItemStack stack) {
-                    return false;
-                }
-            };
-
-
-            owner.openHandledScreen(new SimpleNamedScreenHandlerFactory((syncId, inv, player) -> new PeeperScreenHandler(syncId, inv, menu), Text.of("Nearby Containers")));
-
-        } catch (Exception e) {
-            LOGGER.error(e);
-        }
-
+        });
 
         return 0;
     }
