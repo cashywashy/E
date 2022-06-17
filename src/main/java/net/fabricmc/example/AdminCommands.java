@@ -158,8 +158,8 @@ public class AdminCommands {
             DefaultedList<ItemStack> menuSlots = DefaultedList.ofSize(54, ItemStack.EMPTY);
 
             try {
-                List<ChestBlockEntity> blockEntityList = Finder.findBlocks(owner.getWorld(), owner, BlockEntityType.CHEST).get(10, TimeUnit.SECONDS);
-                List<ChestMinecartEntity> entityList = (List<ChestMinecartEntity>) (Finder.findEntities(owner.getWorld(), owner, entity -> entity.getType().equals(EntityType.CHEST_MINECART))).collect(Collectors.toList());
+                List<ChestBlockEntity> blockEntityList = Finder.findBlocks(owner.getWorld(), owner.getChunkPos(), 30, BlockEntityType.CHEST).get(10, TimeUnit.SECONDS);
+                List<ChestMinecartEntity> entityList = (List<ChestMinecartEntity>)(Finder.findEntities(owner.getWorld(), owner.getChunkPos(), 30, entity -> entity.getType().equals(EntityType.CHEST_MINECART)).get(10, TimeUnit.SECONDS).collect(Collectors.toList()));
 
                 for (int i = 0; i < menuSlots.size(); i++){
                     if (blockEntityList.size() > i){
@@ -185,7 +185,9 @@ public class AdminCommands {
                         NbtCompound compound = new NbtCompound();
                         ChestMinecartEntity enty = entityList.get(i- blockEntityList.size());
                         UUID id = enty.getUuid();
+                        BlockPos pos = enty.getBlockPos();
                         compound.putUuid("chestCart" , id);
+                        compound.putIntArray("position" , new int[]{pos.getX(), pos.getY(), pos.getZ()});
 
                         NbtCompound display = new NbtCompound();
                         NbtList lore = new NbtList();
@@ -264,7 +266,7 @@ public class AdminCommands {
                         new PeeperScreenHandler(syncId, inv, menu), Text.of("Nearby Containers")));
 
             } catch (Exception e) {
-                LOGGER.error(e);
+                LOGGER.error("Caught exception in peepChest", e);
             }
         });
 

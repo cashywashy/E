@@ -16,6 +16,7 @@ import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
@@ -28,6 +29,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Mixin(ScreenHandler.class)
 public abstract class ScreenHandlerMixin {
@@ -67,32 +70,35 @@ public abstract class ScreenHandlerMixin {
                             return screenHandler;
                         }, chest.hasCustomName() ? chest.getCustomName() : chest.getName()));
                     }
-                } else if (compound.contains("chestCart", NbtElement.INT_ARRAY_TYPE)) {
-                    UUID id = compound.getUuid("chestCart");
-                    ChestMinecartEntity chest = null;
-                    try {
-                        chest = (ChestMinecartEntity) (Finder.findEntities(serverPlayer.getWorld(), serverPlayer, e -> e.getUuid().equals(id))).findFirst().orElse(null);
-                    } catch (ExecutionException | IOException | InterruptedException e) {
-                        LOGGER.error(e);
+
+                    if (compound.contains("chestCart", NbtElement.INT_ARRAY_TYPE)) {
+                        UUID id = compound.getUuid("chestCart");
+                        ChunkPos chunkPos = new ChunkPos(pos);
+                        ChestMinecartEntity chest = null;
+                        try {
+                            chest = (ChestMinecartEntity) (Finder.findEntities(serverPlayer.getWorld(), chunkPos, 0, e -> e.getUuid().equals(id))).get(10, TimeUnit.SECONDS).findFirst().orElse(null);
+                        } catch (Exception e) {
+                            LOGGER.error("Caught exception in findEntities", e);
+                        }
+
+                        if (chest != null) {
+                            ChestMinecartEntity finalChest = chest;
+                            player.openHandledScreen(new SimpleNamedScreenHandlerFactory((syncId, inv, player1) -> {
+                                ScreenHandlerType type = finalChest.createMenu(syncId, inv, player1).getType();
+                                GenericContainerScreenHandler screenHandler = new GenericContainerScreenHandler(type, syncId, inv, finalChest, finalChest.size() / 9) {
+                                    @Override
+                                    public boolean canUse(PlayerEntity player) {
+                                        return true;
+                                    }
+                                };
+
+                                return screenHandler;
+                            }, chest.hasCustomName() ? chest.getCustomName() : chest.getName()));
+                        } else {
+                            LOGGER.warn("ENTITY REFERENCE BY ID WAS NOT THE EXPECTED TYPE CHEST MINECART ENTITY!!!!?!?!?!!?!!!?!!!?!????!?!");
+                        }
+
                     }
-
-                    if (chest != null) {
-                        ChestMinecartEntity finalChest = chest;
-                        player.openHandledScreen(new SimpleNamedScreenHandlerFactory((syncId, inv, player1) -> {
-                            ScreenHandlerType type = finalChest.createMenu(syncId, inv, player1).getType();
-                            GenericContainerScreenHandler screenHandler = new GenericContainerScreenHandler(type, syncId, inv, finalChest, finalChest.size() / 9) {
-                                @Override
-                                public boolean canUse(PlayerEntity player) {
-                                    return true;
-                                }
-                            };
-
-                            return screenHandler;
-                        }, chest.hasCustomName() ? chest.getCustomName() : chest.getName()));
-                    } else {
-                        LOGGER.warn("ENTITY REFERENCE BY ID WAS NOT THE EXPECTED TYPE CHEST MINECART ENTITY!!!!?!?!?!!?!!!?!!!?!????!?!");
-                    }
-
                 }
             }
 

@@ -56,8 +56,7 @@ public class Finder {
     }
 
 
-    public static <T> Future<T[]> forEachChunk(ServerWorld world, ServerPlayerEntity player, int range, T[] empty, ChunkConsumer<T> callable) {
-        ChunkPos pos = player.getChunkPos();
+    public static <T> Future<T[]> forEachChunk(ChunkPos centre, int range, T[] empty, ChunkConsumer<T> callable) {
         int len = range * 2 + 1;
 
         int i = 0;
@@ -65,7 +64,7 @@ public class Finder {
         Future<T>[] futures = new Future[len * len];
         for (int x = -range; x <= range; x++) {
             for (int z = -range; z <= range; z++) {
-                ChunkPos chunkPos = new ChunkPos(pos.x + x, pos.z + z);
+                ChunkPos chunkPos = new ChunkPos(centre.x + x, centre.z + z);
                 futures[i++] = (EXECUTOR_SERVICE.submit(() -> callable.apply(chunkPos)));
             }
         }
@@ -79,27 +78,28 @@ public class Finder {
         });
     }
 
-    public static Stream<? extends Entity> findEntities(ServerWorld world, ServerPlayerEntity player, Predicate<Entity> predicate) throws ExecutionException, InterruptedException, IOException {
-        int range = 4;
-        //noinspection unchecked
-        AccessorServerEntityManager<Entity> entityManager = (AccessorServerEntityManager<Entity>) ((AccessorServerWorld) world).getEntityManager();
-        EntityChunkDataAccess entityChunkDataAccess = (EntityChunkDataAccess) entityManager.getDataAccess();
+    public static Future<Stream<? extends Entity>> findEntities(ServerWorld world, ChunkPos centre, int range, Predicate<Entity> predicate) throws ExecutionException, InterruptedException, IOException {
+        return EXECUTOR_SERVICE.submit(() -> {
+            //noinspection unchecked
+            AccessorServerEntityManager<Entity> entityManager = (AccessorServerEntityManager<Entity>) ((AccessorServerWorld) world).getEntityManager();
+            EntityChunkDataAccess entityChunkDataAccess = (EntityChunkDataAccess) entityManager.getDataAccess();
 
-        List<Entity>[] lists = forEachChunk(world, player, range, (List<Entity>[]) new List[0], (ChunkPos chunkPos) -> {
-            final Stream<Entity> steem;
-            if (world.isChunkLoaded(chunkPos.toLong())) {
-                steem = entityManager.getCache().getTrackingSections(chunkPos.toLong()).flatMap(EntityTrackingSection::stream);
-            } else {
-                steem = entityChunkDataAccess.readChunkData(chunkPos).exceptionally(throwable -> {
-                    LogUtils.getLogger().error("Failed to read chunk {}", chunkPos, throwable);
-                    return null;
-                }).get().stream().filter(Objects::nonNull);
-            }
-            return steem.filter(predicate).collect(Collectors.toList());
-        }).get();
+            List<Entity>[] lists = forEachChunk(centre, range, (List<Entity>[]) new List[0], (ChunkPos chunkPos) -> {
+                final Stream<Entity> steem;
+                if (world.isChunkLoaded(chunkPos.toLong())) {
+                    steem = entityManager.getCache().getTrackingSections(chunkPos.toLong()).flatMap(EntityTrackingSection::stream);
+                } else {
+                    steem = entityChunkDataAccess.readChunkData(chunkPos).exceptionally(throwable -> {
+                        LogUtils.getLogger().error("Failed to read chunk {}", chunkPos, throwable);
+                        return null;
+                    }).get().stream().filter(Objects::nonNull);
+                }
+                return steem.filter(predicate).collect(Collectors.toList());
+            }).get();
 
+            return Arrays.stream(lists).flatMap(Collection::stream);
+        });
 
-        return Arrays.stream(lists).flatMap(Collection::stream);
     }
 
     /**
@@ -109,11 +109,9 @@ public class Finder {
      * @param player The player in question. Used to find the chunkpos the player is in. I could probably just have the user pass in the chunkpos directly instead of doing this, but I'm too lazy to change that right now.
      * @param type   The type of block that we're looking for
      **/
-    public static <T extends BlockEntity> Future<List<T>> findBlocks(ServerWorld world, ServerPlayerEntity player, BlockEntityType<T> type) {
-        int range = 4;
-
+    public static <T extends BlockEntity> Future<List<T>> findBlocks(ServerWorld world, ChunkPos centre, int range, BlockEntityType<T> type) {
         return EXECUTOR_SERVICE.submit(() -> {
-            List<T>[] lists = forEachChunk(world, player, range, (List<T>[]) new List[0], (ChunkPos chunkPos) -> {
+            List<T>[] lists = forEachChunk(centre, range, (List<T>[]) new List[0], (ChunkPos chunkPos) -> {
                 final Map<BlockPos, BlockEntity> blockEntities;
                 if (world.isChunkLoaded(chunkPos.toLong())) {
                     blockEntities = world.getChunk(chunkPos.x, chunkPos.z).getBlockEntities();
