@@ -2,6 +2,7 @@ package net.fabricmc.example.finders;
 
 import com.mojang.logging.LogUtils;
 import net.fabricmc.example.mixin.*;
+import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.entity.Entity;
@@ -44,13 +45,35 @@ public class Finder {
     public static ProtoChunk loadChunkIndependent(ServerWorld world, ChunkPos chunkPos) throws ExecutionException, InterruptedException {
         AccessorThreadedAnvilChunkStorage chunkStorage = (AccessorThreadedAnvilChunkStorage) world.getChunkManager().threadedAnvilChunkStorage;
         NbtCompound nbtCompound = ((AccessorVersionedChunkStorage)chunkStorage).invokeGetNbt(chunkPos);
-        Map<ChunkPos, StorageIoWorker.Result> results = ((AccessorStorageIoWorker)((AccessorVersionedChunkStorage)chunkStorage).getWorker()).getResults();
-
 
         if (nbtCompound != null) {
+            NbtList nbtList4 = new NbtList();
+            if (nbtCompound.contains("block_entities")) {
+                nbtList4 = nbtCompound.getList("block_entities", 10);
+//                List<BlockEntity> list = List.of();
+//                nbtList4.forEach(nbtElement -> list.add(BlockEntity.createFromNbt(BlockEntity.posFromNbt((NbtCompound) nbtElement),nbtElement)));
+            }
+
             boolean bl = nbtCompound.contains("Status", NbtElement.STRING_TYPE);
             if (bl) {
                 ProtoChunk chunk = chunkStorage.getMainThreadExecutor().submit(() -> ChunkSerializer.deserialize(world, chunkStorage.getPointOfInterestStorage(), chunkPos, nbtCompound)).get();
+                NbtList list = new NbtList();
+                chunk.getBlockEntities().forEach((blockPos, blockEntity) -> {
+                    list.add(blockEntity.createNbtWithIdentifyingData());
+                });
+
+                if (!nbtList4.equals(list)) {
+                    for (int p = 0; p < nbtList4.size(); ++p) {
+                        NbtCompound nbtCompound4 = nbtList4.getCompound(p);
+                        chunk.addPendingBlockEntityNbt(nbtCompound4);
+                        BlockPos pos = BlockEntity.posFromNbt(nbtCompound4);
+                        chunk.setBlockEntity(BlockEntity.createFromNbt(pos, world.getBlockState(pos), nbtCompound4));
+                    }
+                    LOGGER.warn(nbtList4.toString());
+                    LOGGER.warn(chunk.getBlockEntities());
+                    LOGGER.warn(chunk.getStatus().getChunkType());
+                }
+
                 return chunk;
             }
             LOGGER.error("Chunk file at {} is missing level data, skipping", chunkPos);
@@ -125,7 +148,7 @@ public class Finder {
                     if (chunk != null) {
                          blockEntities = chunk.getBlockEntities();
                         chunk.getBlockEntityNbts().forEach((blockPos, nbtCompound) -> {
-                            System.out.println(nbtCompound);
+//                            System.out.println(nbtCompound);
                         });
                     }
                     else {
