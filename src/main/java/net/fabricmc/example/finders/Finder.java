@@ -1,32 +1,32 @@
 package net.fabricmc.example.finders;
 
 import com.mojang.logging.LogUtils;
-import net.fabricmc.example.mixin.AccessorServerEntityManager;
-import net.fabricmc.example.mixin.AccessorServerWorld;
-import net.fabricmc.example.mixin.AccessorThreadedAnvilChunkStorage;
+import net.fabricmc.example.mixin.*;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerEntityManager;
+import net.minecraft.nbt.NbtElement;
+import net.minecraft.nbt.NbtList;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.ChunkSerializer;
-import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.chunk.ChunkManager;
+import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraft.world.chunk.ProtoChunk;
 import net.minecraft.world.entity.EntityTrackingSection;
 import net.minecraft.world.storage.EntityChunkDataAccess;
+import net.minecraft.world.storage.StorageIoWorker;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -41,17 +41,21 @@ public class Finder {
     }
 
     @Nullable
-    private static ProtoChunk loadChunkIndependent(ServerWorld world, ChunkPos chunkPos) {
+    public static ProtoChunk loadChunkIndependent(ServerWorld world, ChunkPos chunkPos) throws ExecutionException, InterruptedException {
         AccessorThreadedAnvilChunkStorage chunkStorage = (AccessorThreadedAnvilChunkStorage) world.getChunkManager().threadedAnvilChunkStorage;
+        NbtCompound nbtCompound = ((AccessorVersionedChunkStorage)chunkStorage).invokeGetNbt(chunkPos);
+        Map<ChunkPos, StorageIoWorker.Result> results = ((AccessorStorageIoWorker)((AccessorVersionedChunkStorage)chunkStorage).getWorker()).getResults();
 
-        NbtCompound nbtCompound = chunkStorage.invokeGetUpdatedChunkNbt(chunkPos);
+
         if (nbtCompound != null) {
-            boolean bl = nbtCompound.contains("Status", 8);
+            boolean bl = nbtCompound.contains("Status", NbtElement.STRING_TYPE);
             if (bl) {
-                return ChunkSerializer.deserialize(world, chunkStorage.getPointOfInterestStorage(), chunkPos, nbtCompound);
+                ProtoChunk chunk = chunkStorage.getMainThreadExecutor().submit(() -> ChunkSerializer.deserialize(world, chunkStorage.getPointOfInterestStorage(), chunkPos, nbtCompound)).get();
+                return chunk;
             }
             LOGGER.error("Chunk file at {} is missing level data, skipping", chunkPos);
         }
+//        LOGGER.warn("I fucked something up");
         return null;
     }
 
@@ -109,7 +113,7 @@ public class Finder {
      * @param player The player in question. Used to find the chunkpos the player is in. I could probably just have the user pass in the chunkpos directly instead of doing this, but I'm too lazy to change that right now.
      * @param type   The type of block that we're looking for
      **/
-    public static <T extends BlockEntity> Future<List<T>> findBlocks(ServerWorld world, ChunkPos centre, int range, BlockEntityType<T> type) {
+     public static <T extends BlockEntity> Future<List<T>> findBlocks(ServerWorld world, ChunkPos centre, int range, BlockEntityType<T> type) {
         return EXECUTOR_SERVICE.submit(() -> {
             List<T>[] lists = forEachChunk(centre, range, (List<T>[]) new List[0], (ChunkPos chunkPos) -> {
                 final Map<BlockPos, BlockEntity> blockEntities;
@@ -117,7 +121,17 @@ public class Finder {
                     blockEntities = world.getChunk(chunkPos.x, chunkPos.z).getBlockEntities();
                 } else {
                     ProtoChunk chunk = loadChunkIndependent(world, chunkPos);
-                    blockEntities = chunk != null ? chunk.getBlockEntities() : null;
+
+                    if (chunk != null) {
+                         blockEntities = chunk.getBlockEntities();
+                        chunk.getBlockEntityNbts().forEach((blockPos, nbtCompound) -> {
+                            System.out.println(nbtCompound);
+                        });
+                    }
+                    else {
+                        blockEntities = null;
+//                        LOGGER.warn("chunk does not exists at KILLME".replace("KILLME", chunkPos.toString()));
+                    }
                 }
                 //noinspection unchecked
                 return blockEntities != null ? (List<T>) blockEntities.values().stream().filter(blockEntity -> blockEntity.getType().equals(type)).collect(Collectors.toList()) : List.<T>of();
