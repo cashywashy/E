@@ -46,9 +46,10 @@ public abstract class ScreenHandlerMixin {
      * @param player the player that's doing the thing
      **/
     @Redirect(at = @At(value = "INVOKE", target = "Lnet/minecraft/screen/ScreenHandler;internalOnSlotClick(IILnet/minecraft/screen/slot/SlotActionType;Lnet/minecraft/entity/player/PlayerEntity;)V"), method = "onSlotClick")
-    public void PooPooPeePee(ScreenHandler instance, int slotIndex, int button, SlotActionType actionType, PlayerEntity player) {
+    public void onSlotClickRedirect(ScreenHandler instance, int slotIndex, int button, SlotActionType actionType, PlayerEntity player) {
         // this means the method will function normally if it's just a normal screenHandler.
         if (player.getWorld().isClient || !(instance instanceof PeeperScreenHandler)|| !(instance instanceof InventoryPeeper)) {
+
             internalOnSlotClick(slotIndex, button, actionType, player);
             return;
         }
@@ -123,7 +124,7 @@ public abstract class ScreenHandlerMixin {
      **/
 // This is around the time when I was still delirious after writing my English novel essay, so don't mind the name.
     @Inject(at = @At("HEAD"), method = "canInsertIntoSlot(Lnet/minecraft/item/ItemStack;Lnet/minecraft/screen/slot/Slot;)Z", cancellable = true)
-    public void PeePeePooPoo(ItemStack stack, Slot slot, CallbackInfoReturnable<Boolean> cir){
+    public void canInsertIntoSlotInject(ItemStack stack, Slot slot, CallbackInfoReturnable<Boolean> cir){
         cir.setReturnValue(slot.inventory.isValid(slot.id, stack));
     }
 }

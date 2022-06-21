@@ -3,11 +3,7 @@ package net.fabricmc.example;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v1.CommandRegistrationCallback;
 import net.minecraft.command.argument.EntityArgumentType;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.CommandManager;
-
-import javax.annotation.Nullable;
-import java.util.Objects;
 
 public class Init implements ModInitializer {
     // this has no practical purpose right now, but it's here just in case.
