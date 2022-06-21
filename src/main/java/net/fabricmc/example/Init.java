@@ -10,8 +10,12 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 
 public class Init implements ModInitializer {
+    // this has no practical purpose right now, but it's here just in case.
     public static final String MOD_ID = "chadmin";
 
+    /**
+     * The method that happens whenever the mod is initialized... I think.
+    **/
     @Override
     public void onInitialize() {
         CommandRegistrationCallback.EVENT.register((dispatcher, dedicated) ->

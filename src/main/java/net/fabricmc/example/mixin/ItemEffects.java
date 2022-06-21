@@ -22,6 +22,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+// Unless Michael makes items with these tags, they shouldn't be able to affect the server at all. Please don't tell him about it
 @Mixin(ServerPlayerInteractionManager.class)
 public final class ItemEffects {
 	public final String EXPLOSION = "explosion";

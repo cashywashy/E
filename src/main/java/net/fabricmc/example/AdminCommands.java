@@ -18,7 +18,6 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.nbt.NbtString;
 import net.minecraft.screen.GenericContainerScreenHandler;
-import net.minecraft.screen.ScreenHandlerType;
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -28,34 +27,39 @@ import net.minecraft.util.math.BlockPos;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class AdminCommands {
     public static final Logger LOGGER = LogManager.getLogger();
 
+    /**
+     * Peeps the target player's enderchest.
+     * @param context this is the context of the command. It contains the parameters, source, and other things that I'm too tired to think about
+     **/
     public static int peepEnderChest(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
-        ServerPlayerEntity player2 = context.getArgument("player", ServerPlayerEntity.class);
+        ServerPlayerEntity player2 = EntityArgumentType.getPlayer(context, "player");
         ServerPlayerEntity owner = context.getSource().getPlayer();
         EnderChestInventory enderChestInventory = player2.getEnderChestInventory();
 
         owner.openHandledScreen(new SimpleNamedScreenHandlerFactory((syncId, inventory, player) -> GenericContainerScreenHandler.createGeneric9x3(syncId, inventory, enderChestInventory), player2.getName()));
 
-
         return 0;
     }
 
+    /**
+     * peeps the inventory of the target player.
+     * @param context what I said above for the peepEnderChest parameter.
+     **/
     public static int peepInventory(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
 
         ServerPlayerEntity player2 = EntityArgumentType.getPlayer(context, "player");
         PlayerInventory playerInventory = player2.getInventory();
         ServerPlayerEntity owner = context.getSource().getPlayer();
 
-
+        // this obnoxiously large block of code is me defining a new inventory to organize the stuff in the inventory.
         SimpleNamedScreenHandlerFactory menu = new SimpleNamedScreenHandlerFactory((syncId, inventory, player) -> {
             Inventory viewInv = new Inventory() {
                 @Override
@@ -142,7 +146,7 @@ public class AdminCommands {
                     return getSlot(slot) != -1;
                 }
             };
-            return GenericContainerScreenHandler.createGeneric9x6(syncId, inventory, viewInv);
+            return new InventoryPeeper(syncId, inventory, viewInv);
 
         }, player2.getName());
 
@@ -152,8 +156,12 @@ public class AdminCommands {
         return 0;
     }
 
+    /**
+     * I had to get Michael's help for this one a lot of times. This checks the surroundings of the command source for chests and chestMinecarts. Later on when we apply the mod onto his server, we will add other storage blocks.
+     **/
     public static int peepChest(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
         ServerPlayerEntity owner = context.getSource().getPlayer();
+        // putting this entire task onto a separate thread, because otherwise it would lag the server like crazy.
         Finder.EXECUTOR_SERVICE.submit(() -> {
             DefaultedList<ItemStack> menuSlots = DefaultedList.ofSize(54, ItemStack.EMPTY);
 
@@ -161,6 +169,7 @@ public class AdminCommands {
                 List<ChestBlockEntity> blockEntityList = Finder.findBlocks(owner.getWorld(), owner.getChunkPos(), 30, BlockEntityType.CHEST).get(10, TimeUnit.SECONDS);
                 List<ChestMinecartEntity> entityList = (List<ChestMinecartEntity>)(Finder.findEntities(owner.getWorld(), owner.getChunkPos(), 30, entity -> entity.getType().equals(EntityType.CHEST_MINECART)).get(10, TimeUnit.SECONDS).collect(Collectors.toList()));
 
+                // processing the entities in the list and putting it onto the menu
                 for (int i = 0; i < menuSlots.size(); i++){
                     if (blockEntityList.size() > i){
                         NbtCompound compound = new NbtCompound();
@@ -192,7 +201,7 @@ public class AdminCommands {
                         NbtCompound display = new NbtCompound();
                         NbtList lore = new NbtList();
 
-                        lore.add(NbtString.of(String.valueOf(id)));
+                        lore.add(NbtString.of("\"e\"".replace("e", pos.toShortString())));
 
                         display.put("Lore", lore);
                         compound.put("display", display);
@@ -206,9 +215,10 @@ public class AdminCommands {
                         menuSlots.set(i, ItemStack.EMPTY);
                     }
                 }
+                // the inventory of the menu
                 Inventory menu = new Inventory() {
-                    int size = menuSlots.size();
-                    DefaultedList<ItemStack> slots = menuSlots;
+                    final int size = menuSlots.size();
+                    final DefaultedList<ItemStack> slots = menuSlots;
 
                     @Override
                     public int size() {

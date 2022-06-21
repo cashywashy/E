@@ -24,9 +24,6 @@ public interface AccessorThreadedAnvilChunkStorage {
     @Invoker
     NbtCompound invokeGetUpdatedChunkNbt(ChunkPos pos);
 
-    @Invoker
-    CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> invokeLoadChunk(ChunkPos pos);
-
     @Accessor
     PointOfInterestStorage getPointOfInterestStorage();
 
